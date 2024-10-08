@@ -12,6 +12,7 @@ Options
   --orgs        delete organizations
   --user-repos  delete user repositories
   --users       delete users
+  --purge       delete all data for the user
 """
 import os
 import configparser
@@ -137,7 +138,7 @@ def del_user_repos(page: int=1) -> None:
             )
 
 
-def del_users(page: int=1) -> None:
+def del_users(purge: str, page: int=1) -> None:
     """Delete all users"""
     all_users = []
     url = f"{FORGEJO_API_URL}/admin/users"
@@ -150,7 +151,7 @@ def del_users(page: int=1) -> None:
         all_users.extend(user_names)
     for user in all_users:
         url = f"{FORGEJO_API_URL}/admin/users/{user}"
-        response: requests.Response = session.delete(url, timeout=20)
+        response: requests.Response = session.delete(url, params={'purge': purge}, timeout=20)
         if response.ok:
             fg_print.info(f"User {user} deleted on Forgejo")
         else:
@@ -176,7 +177,8 @@ if __name__ == "__main__":
     if args["--orgs"]:
         del_orgs()
     if args["--users"]:
-        del_users()
+        PURGE_OPT = "true" if args["--purge"] else "false"
+        del_users(PURGE_OPT)
 
     session.close()
     ERR_COUNT = fg_print.GLOBAL_ERROR_COUNT
