@@ -73,6 +73,8 @@ GITLAB_URL = config.get("migrate", "gitlab_url")
 GITLAB_TOKEN = config.get("migrate", "gitlab_token")
 GITLAB_ADMIN_USER = config.get("migrate", "gitlab_admin_user")
 GITLAB_ADMIN_PASS = config.get("migrate", "gitlab_admin_pass")
+FORGEJO_CLIENT_AUTH_CERT = config.get("migrate", "forgejo_client_auth_cert")
+FORGEJO_CLIENT_AUTH_KEY = config.get("migrate", "forgejo_client_auth_key")
 FORGEJO_URL = config.get("migrate", "forgejo_url")
 FORGEJO_API_URL = f"{FORGEJO_URL}/api/v1"
 FORGEJO_TOKEN = config.get("migrate", "forgejo_token")
@@ -207,6 +209,11 @@ def get_team_members(teamid: int) -> List:
     """get members for a team"""
     existing_members = []
     session = requests.Session()
+    # add client authentication if cert and key are provided in the config
+    if(FORGEJO_CLIENT_AUTH_CERT != "" and FORGEJO_CLIENT_AUTH_KEY != ""):
+        cert_path = FORGEJO_CLIENT_AUTH_CERT
+        key_path = FORGEJO_CLIENT_AUTH_KEY
+        session.cert = (cert_path, key_path)
     session.auth = (FORGEJO_USER, FORGEJO_PASSWORD)
     member_response: requests.Response = session.get(
         f"{FORGEJO_API_URL}/teams/{teamid}/members",
@@ -245,6 +252,11 @@ def get_user_or_group(project: gitlab.v4.objects.Project) -> Dict:
     proj_namespace_path = project.namespace["path"]
     proj_namespace_name = name_clean(project.namespace["name"])
     session = requests.Session()
+    # add client authentication if cert and key are provided in the config
+    if(FORGEJO_CLIENT_AUTH_CERT != "" and FORGEJO_CLIENT_AUTH_KEY != ""):
+        cert_path = FORGEJO_CLIENT_AUTH_CERT
+        key_path = FORGEJO_CLIENT_AUTH_KEY
+        session.cert = (cert_path, key_path)
     response: requests.Response = session.get(
         f"{FORGEJO_API_URL}/users/{proj_namespace_path}",
         headers={"Authorization": FORGEJO_TOKEN},
@@ -834,6 +846,11 @@ def _import_group_members(
         )
         for member in members:
             session = requests.Session()
+            # add client authentication if cert and key are provided in the config
+            if(FORGEJO_CLIENT_AUTH_CERT != "" and FORGEJO_CLIENT_AUTH_KEY != ""):
+                cert_path = FORGEJO_CLIENT_AUTH_CERT
+                key_path = FORGEJO_CLIENT_AUTH_KEY
+                session.cert = (cert_path, key_path)
             session.auth = (FORGEJO_USER, FORGEJO_PASSWORD)
             if not member_exists(member.username, first_team["id"]):
                 import_response: requests.Response = session.put(
