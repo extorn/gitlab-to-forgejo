@@ -40,18 +40,27 @@ You need to create a configuration file called `.migrate.ini` and store it in th
 ```ini
 [migrate]
 gitlab_url = https://gitlab.example.com
+# Either a Gitlab token OR admin user and password are required for migrate, but push mirrors requires user and password at present
 gitlab_token = <your-gitlab-token>
 gitlab_admin_user = <gitlab-admin-user>
 gitlab_admin_pass = <your-gitlab-password>
+gitlab_sync_connection_type = <ssh/https>
+
 forgejo_url = https://forgejo.example.com
-# Must be a full access read and write permissions token
+# Either a Forgejo token OR admin user and password are required for migrate, but push mirrors requires user and password at present
 forgejo_token = <your-forgejo-token>
-# user and pass are Not needed for the migrate.py script
 forgejo_admin_user = <forgejo-admin-user>
 forgejo_admin_pass = <your-forgejo-password>
 
+
+# if your forgejo instance requires client authentication, provide the paths to the cert and key files below
+# If forgejo_client_auth_cert is provided, client authentication is switched on
+#forgejo_client_auth_cert = /path/to/forgejo_client_auth_cert.pem
+#forgejo_client_auth_key = /path/to/forgejo_client_auth_key.pem
+
 # If your gitlab instance requires client authentication, 
 # uncomment these parameters, and provide the appropriate paths
+# If gitlab_client_auth_cert is provided, client authentication is switched on
 #gitlab_client_auth_cert = /path/to/gitlab_client_auth_cert.pem
 #gitlab_client_auth_key = /path/to/gitlab_client_auth_key.pem
 ```
