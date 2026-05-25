@@ -1,6 +1,6 @@
 python-gitlab
 requests
 python-dateutil
-pyforgejo >= 1.0, < 2.0
+pyforgejo >= 2.0
 docopt-ng
 click
