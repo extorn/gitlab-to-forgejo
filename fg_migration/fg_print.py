@@ -8,12 +8,16 @@ class Bcolors:
 
     HEADER = "\033[95m"
     OKBLUE = "\033[94m"
+    DIM = "\033[2m"
     OKGREEN = "\033[92m"
     WARNING = "\033[93m"
     FAIL = "\033[91m"
     ENDC = "\033[0m"
     BOLD = "\033[1m"
     UNDERLINE = "\033[4m"
+
+
+IS_DEBUG:bool = True
 
 
 def message(color, msg, colorend=Bcolors.ENDC, bold=False) -> str:
@@ -28,6 +32,10 @@ def print_color(color, msg, colorend=Bcolors.ENDC, _bold=False) -> None:
     """Prints a message in color"""
     print(message(color, msg, colorend))
 
+def debug(msg) -> None:
+    """Prints a debug message"""
+    if IS_DEBUG:
+        print_color(Bcolors.DIM, msg)
 
 def info(msg) -> None:
     """Prints an info message"""
@@ -50,6 +58,8 @@ def error(msg: str, element: str=None) -> int:
     global GLOBAL_ERROR_LIST  # pylint: disable=global-variable-not-assigned
     if element:
         GLOBAL_ERROR_LIST.append(element)
+    else:
+        GLOBAL_ERROR_LIST.append(str)
     GLOBAL_ERROR_COUNT += 1
     print_color(Bcolors.FAIL, msg)
     return GLOBAL_ERROR_COUNT
