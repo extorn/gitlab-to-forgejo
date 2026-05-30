@@ -10,7 +10,6 @@ from pyforgejo.core import RequestOptions
 from typing_extensions import deprecated
 
 import dateutil.parser
-from httpx import Client as HttpxClient
 
 import pyforgejo  # pip install pyforgejo (https://github.com/h44z/pyforgejo)
 
@@ -25,6 +24,7 @@ from fg_migration.utils import diff_dataclasses
 
 @dataclass
 class ForgejoRolePermissionDefinition:
+    role : CanonicalRepositoryRole
     can_create_org_repo:bool = False
     includes_all_repositories:bool = False
     permission:CreateTeamOptionPermission = ""
@@ -59,8 +59,8 @@ class ForgejoMigrator:
     fg_api : pyforgejo.PyforgejoApi
     forgejo_config : ForgejoConfig
     forgejo_migration_config : ForgejoMigrationConfig
-    role_definitions : Dict[CanonicalRepositoryRole|str,ForgejoRolePermissionDefinition]
-    team_definitions : Dict[CanonicalRepositoryRole|str,ForgejoTeamDefinition]
+    role_definitions : Dict[CanonicalRepositoryRole|str,ForgejoRolePermissionDefinition] # Note we permit str keys too so unexpected source access levels can be cached
+    team_definitions : Dict[CanonicalRepositoryRole|str,ForgejoTeamDefinition] # Note we permit str keys too so unexpected source access levels can be cached
 
 
     def __init__(self, fg_api:pyforgejo.PyforgejoApi, forgejo_config:ForgejoConfig, forgejo_migration_config=ForgejoMigrationConfig):

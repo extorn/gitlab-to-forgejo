@@ -22,6 +22,7 @@ class Migrator:
         self.migration_config = migration_config
         self.migration_source = migration_source
     
+    #TODO reenable this code and update it to work
         
 
     # def _import_project_labels(
@@ -504,15 +505,15 @@ class Migrator:
                 existing_users = set(self.fg_api.get_forgejo_team_members(matched_team))
                 fg_print.warning(f"Pre-existing team users will be granted access to new repositories that are created with access granted to this team. Affected Forgejo Team {matched_team.name}, usernames: {existing_users}")
 
-            matching_forgejo_teams = {} # leave as set in case we can alter Owner group name in future 
-
+            # A set in case we can alter Owner group name in future or Forgejo is updated to create other teams automatically with an Organization
+            matching_forgejo_teams = {}
 
             # Handle the owners specially since that team is always pre-created in Forgejo and 
             # a new one cannot be added with those permissions. We might need to update it's name to match user requirement
-            # NOTE: this was the idea, but actually the team names "Owners" is hardcoded in Forgejo so it breaks other things if you change it
-            forgejo_team_definition.role == 
-            #if self.fg_api.is_owner_group(matched_team):
-            #    matching_forgejo_teams.add(self.fg_api.get_default_owners_team_name())
+            # but we still need to be able to find it when it has the default system assigned name
+            #NOTE: if you change this team name, Forgejo will be in a corrupted state since the name is used as a hardcoded ID internally I think.
+            if CanonicalRepositoryRole.OWNER == forgejo_team_definition.permissions.role:
+                matching_forgejo_teams.add(self.fg_api.get_default_owners_team_name())
             
             # find the first matching team
             if matched_team is not None:
