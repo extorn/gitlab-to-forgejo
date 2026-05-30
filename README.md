@@ -58,16 +58,16 @@ You need to create a configuration file called `.migrate.ini` and store it in th
 #allow_fuzzy_auth_upgrade=False
 
 # Overrides for organization team names (for their gitlab equivalent)
-#org_team_name_maintainers=Maintainers
-#org_team_name_developers=Developers
-#org_team_name_reporters=Reporters
-#org_team_name_guests=Guests
+#org_team_maintainers_name=Maintainers
+#org_team_developers_name=Developers
+#org_team_reporters_name=Reporters
+#org_team_guests_name=Guests
 # Overrides for organization team descriptions
-#org_team_name_owners_description=Owners
-#org_team_name_maintainers_description=Maintainers
-#org_team_name_developers_description=Developers
-#org_team_name_reporters_description=Reporters
-#org_team_name_guests_description=Guests
+#org_team_owners_description=Owners
+#org_team_maintainers_description=Maintainers
+#org_team_developers_description=Developers
+#org_team_reporters_description=Reporters
+#org_team_guests_description=Guests
 
 # Gitlab website url
 gitlab_url = https://gitlab.example.com <http[s]://hostname[:port][/path]>

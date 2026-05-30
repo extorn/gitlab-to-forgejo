@@ -21,35 +21,10 @@ class MigrationConfig:
         self.ALLOW_FUZZY_AUTH_UPGRADE = config.getboolean(section, "allow_fuzzy_auth_upgrade", fallback=False)
 
 @dataclass
-class ForgejoMigrationConfig:
+class ForgejoConfig:
     # This is the name that Forgejo assigns the initial Team for an organization with the role Owners
     FORGEJO_DEFAULT_OWNERS_TEAM_NAME="Owners"
 
-    ORG_TEAM_NAME_OWNERS = FORGEJO_DEFAULT_OWNERS_TEAM_NAME # MUST NOT change, hardcoded in Forgejo code. config.get("migrate", "org_team_name_owners", fallback="Owners")
-    ORG_TEAM_NAME_MAINTAINERS :str
-    ORG_TEAM_NAME_DEVELOPERS : str
-    ORG_TEAM_NAME_REPORTERS : str
-    ORG_TEAM_NAME_GUESTS : str
-    ORG_TEAM_NAME_OWNERS_DESCRIPTION : str
-    ORG_TEAM_NAME_MAINTAINERS_DESCRIPTION : str
-    ORG_TEAM_NAME_DEVELOPERS_DESCRIPTION : str
-    ORG_TEAM_NAME_REPORTERS_DESCRIPTION : str
-    ORG_TEAM_NAME_GUESTS_DESCRIPTION : str
-
-    def __init__(self, config:configparser.RawConfigParser, section:str = "migrate.forgejo"):
-        self.ORG_TEAM_NAME_OWNERS = self.FORGEJO_DEFAULT_OWNERS_TEAM_NAME # MUST NOT change, hardcoded in Forgejo code. config.get(section, "org_team_name_owners", fallback="Owners")
-        self.ORG_TEAM_NAME_MAINTAINERS = config.get(section, "org_team_name_maintainers", fallback="Maintainers")
-        self.ORG_TEAM_NAME_DEVELOPERS = config.get(section, "org_team_name_developers", fallback="Developers")
-        self.ORG_TEAM_NAME_REPORTERS = config.get(section, "org_team_name_reporters", fallback="Reporters")
-        self.ORG_TEAM_NAME_GUESTS = config.get(section, "org_team_name_guests", fallback="Guests")
-        self.ORG_TEAM_NAME_OWNERS_DESCRIPTION = config.get(section, "org_team_name_owners_description", fallback=self.ORG_TEAM_NAME_OWNERS)
-        self.ORG_TEAM_NAME_MAINTAINERS_DESCRIPTION = config.get(section, "org_team_name_maintainers_description", fallback=self.ORG_TEAM_NAME_MAINTAINERS)
-        self.ORG_TEAM_NAME_DEVELOPERS_DESCRIPTION = config.get(section, "org_team_name_developers_description", fallback=self.ORG_TEAM_NAME_DEVELOPERS)
-        self.ORG_TEAM_NAME_REPORTERS_DESCRIPTION = config.get(section, "org_team_name_reporters_description", fallback=self.ORG_TEAM_NAME_REPORTERS)
-        self.ORG_TEAM_NAME_GUESTS_DESCRIPTION = config.get(section, "org_team_name_guests_description", fallback=self.ORG_TEAM_NAME_GUESTS)
-
-@dataclass
-class ForgejoConfig:
     FORGEJO_CLIENT_AUTH_CERT : str | None
     FORGEJO_CLIENT_AUTH_KEY : str | None
     FORGEJO_URL : str
@@ -68,6 +43,32 @@ class ForgejoConfig:
         # Not used. The script uses a personal access token for authentication
         self.FORGEJO_USER = config.get(section, "forgejo_admin_user")
         self.FORGEJO_PASSWORD = config.get(section, "forgejo_admin_pass")
+
+@dataclass
+class ForgejoMigrationConfig:
+    
+    ORG_TEAM_OWNERS_NAME : str
+    ORG_TEAM_MAINTAINERS_NAME :str
+    ORG_TEAM_DEVELOPERS_NAME : str
+    ORG_TEAM_REPORTERS_NAME : str
+    ORG_TEAM_GUESTS_NAME : str
+    ORG_TEAM_OWNERS_DESCRIPTION : str
+    ORG_TEAM_MAINTAINERS_DESCRIPTION : str
+    ORG_TEAM_DEVELOPERS_DESCRIPTION : str
+    ORG_TEAM_REPORTERS_DESCRIPTION : str
+    ORG_TEAM_GUESTS_DESCRIPTION : str
+
+    def __init__(self, config:configparser.RawConfigParser, section:str = "migrate.forgejo"):
+        self.ORG_TEAM_OWNERS_NAME = ForgejoConfig.FORGEJO_DEFAULT_OWNERS_TEAM_NAME # MUST NOT change, hardcoded in Forgejo code. config.get("migrate", "org_team_owners_name", fallback="Owners")
+        self.ORG_TEAM_MAINTAINERS_NAME = config.get(section, "org_team_maintainers_name", fallback="Maintainers")
+        self.ORG_TEAM_DEVELOPERS_NAME = config.get(section, "org_team_developers_name", fallback="Developers")
+        self.ORG_TEAM_REPORTERS_NAME = config.get(section, "org_team_reporters_name", fallback="Reporters")
+        self.ORG_TEAM_GUESTS_NAME = config.get(section, "org_team_guests_name", fallback="Guests")
+        self.ORG_TEAM_OWNERS_DESCRIPTION = config.get(section, "org_team_owners_description", fallback=self.ORG_TEAM_OWNERS_DESCRIPTION)
+        self.ORG_TEAM_MAINTAINERS_DESCRIPTION = config.get(section, "org_team_maintainers_description", fallback=self.ORG_TEAM_MAINTAINERS_DESCRIPTION)
+        self.ORG_TEAM_DEVELOPERS_DESCRIPTION = config.get(section, "org_team_developers_description", fallback=self.ORG_TEAM_DEVELOPERS_DESCRIPTION)
+        self.ORG_TEAM_REPORTERS_DESCRIPTION = config.get(section, "org_team_reporters_description", fallback=self.ORG_TEAM_REPORTERS_DESCRIPTION)
+        self.ORG_TEAM_GUESTS_DESCRIPTION = config.get(section, "org_team_guests_description", fallback=self.ORG_TEAM_GUESTS_DESCRIPTION)
 
 @dataclass
 class GitlabConfig:

@@ -1,5 +1,6 @@
 
 from dataclasses import asdict
+import re
 
 
 def diff_dataclasses(before, after) -> dict:
@@ -20,7 +21,8 @@ def diff_dataclasses(before, after) -> dict:
 
 
 def name_clean(name):
-    """Cleans a name for usage in Forgejo"""
+    """Cleans a name for usage in Forgejo - names can be used as identifiers,
+       so this is necessary for usernames, organization names, repo names, team names etc"""
     new_name = name.replace(" ", "_")
     new_name = re.sub(r"[^a-zA-Z0-9_\.-]", "-", new_name)
 

@@ -1,6 +1,6 @@
 
 from copy import deepcopy
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 import os
 import random
 import string
@@ -19,30 +19,31 @@ from pyforgejo import ConflictError, CreateTeamOptionPermission, GpgKey, Issue, 
 from pyforgejo.core.api_error import ApiError
 
 from fg_migration import fg_print
-from fg_migration.canonical_types import CanonicalOrganization, CanonicalRepo, CanonicalRepositoryRole, CanonicalSystemUser
+from fg_migration.canonical_types import CanonicalOrganization, CanonicalRepo, CanonicalRepositoryRole, CanonicalSystemUser, CanonicalTeam
+from fg_migration.config_types import ForgejoConfig, ForgejoMigrationConfig
 from fg_migration.utils import diff_dataclasses
 
 @dataclass
-class ForgejoTeamPermissionDefinition:
+class ForgejoRolePermissionDefinition:
     can_create_org_repo:bool = False
     includes_all_repositories:bool = False
     permission:CreateTeamOptionPermission = ""
     units_map: dict[str,str] = field(default_factory=dict) # use of field here ensures new instance for every instance of the class
 
-    def diff(self, other:ForgejoTeamPermissionDefinition) -> str :
+    def diff(self, other:ForgejoRolePermissionDefinition) -> str :
         return diff_dataclasses(self,other)
 
 @dataclass
 class ForgejoTeamDefinition:
     name: str
     description: str
-    permissions: ForgejoTeamPermissionDefinition
+    permissions: ForgejoRolePermissionDefinition
 
     @staticmethod
     def fromTeam(team:Team) -> ForgejoTeamDefinition:
         return ForgejoTeamDefinition(name=team.name,
                               description=team.description,
-                              permissions=ForgejoTeamPermissionDefinition(
+                              permissions=ForgejoRolePermissionDefinition(
                                   can_create_org_repo=team.can_create_org_repo,
                                   includes_all_repositories=team.includes_all_repositories,
                                   permission=team.permission,
@@ -56,12 +57,17 @@ class ForgejoTeamDefinition:
 class ForgejoMigrator:
     
     fg_api : pyforgejo.PyforgejoApi
+    forgejo_config : ForgejoConfig
+    forgejo_migration_config : ForgejoMigrationConfig
+    role_definitions : Dict[CanonicalRepositoryRole|str,ForgejoRolePermissionDefinition]
+    team_definitions : Dict[CanonicalRepositoryRole|str,ForgejoTeamDefinition]
 
-    team_definitions : Dict[CanonicalRepositoryRole|str,ForgejoTeamPermissionDefinition]
 
-
-    def __init__(self, fg_api:pyforgejo.PyforgejoApi):
+    def __init__(self, fg_api:pyforgejo.PyforgejoApi, forgejo_config:ForgejoConfig, forgejo_migration_config=ForgejoMigrationConfig):
         self.fg_api = fg_api
+        self.forgejo_config = forgejo_config
+        self.forgejo_migration_config = forgejo_migration_config
+        self._build_role_definitions()
         self._build_team_definitions()
     
     def _get_forgejo_labels(self, owner: str, repo: str) -> List[Label]:
@@ -76,36 +82,90 @@ class ForgejoMigrator:
             return []
 
 
-    def _build_team_definitions(self):
-        self.team_definitions = {
-        CanonicalRepositoryRole.OWNER:
-            ForgejoTeamPermissionDefinition(
-                permission="admin", # Not supported
-                units_map= { "repo.actions": "write", "repo.code": "write", "repo.ext_issues": "read", "repo.ext_wiki": "admin", "repo.issues": "write", "repo.packages": "write", "repo.projects": "write", "repo.pulls": "owner", "repo.releases": "write", "repo.wiki": "admin" }
-            ),
-        CanonicalRepositoryRole.MAINTAINER:
-            ForgejoTeamPermissionDefinition(
-                permission="admin",
-                units_map= { "repo.actions": "write", "repo.code": "write", "repo.ext_issues": "read", "repo.ext_wiki": "admin", "repo.issues": "write", "repo.packages": "write", "repo.projects": "write", "repo.pulls": "owner", "repo.releases": "write", "repo.wiki": "admin" }
-            ),
-        CanonicalRepositoryRole.DEVELOPER:
-            ForgejoTeamPermissionDefinition(
-                permission="write",
-                units_map= { "repo.actions": "read", "repo.code": "write", "repo.ext_issues": "read", "repo.ext_wiki": "read", "repo.issues": "write", "repo.packages": "write", "repo.projects": "read", "repo.pulls": "owner", "repo.releases": "write", "repo.wiki": "write" }
-            ),
-        CanonicalRepositoryRole.REPORTER:
-        ForgejoTeamPermissionDefinition(
-                permission="read",
-                units_map= { "repo.actions": "none", "repo.code": "read", "repo.ext_issues": "read", "repo.ext_wiki": "read", "repo.issues": "write", "repo.packages": "none", "repo.projects": "none", "repo.pulls": "none", "repo.releases": "none", "repo.wiki": "none" }
-            ),
-        CanonicalRepositoryRole.GUEST:
-        ForgejoTeamPermissionDefinition(
-                permission="read",
-                units_map= { "repo.actions": "none", "repo.code": "read", "repo.ext_issues": "none", "repo.ext_wiki": "none", "repo.issues": "read", "repo.packages": "read", "repo.projects": "read", "repo.pulls": "read", "repo.releases": "read", "repo.wiki": "read" }
-            ),
-    }
 
-    def _get_forgejo_milestones(self, owner: str, repo: str) -> List[Milestone]:
+    def  _build_team_definitions(self):
+        self.team_definitions = {}
+        for role in CanonicalRepositoryRole:
+            match role:
+                case CanonicalRepositoryRole.OWNER:
+                    self.team_definitions[role] = ForgejoTeamDefinition(name=self.forgejo_migration_config.ORG_TEAM_OWNERS_NAME,
+                                                                        description=self.forgejo_migration_config.ORG_TEAM_OWNERS_DESCRIPTION,
+                                                                        permissions=self.role_definitions[role]),
+                case CanonicalRepositoryRole.MAINTAINER:
+                    self.team_definitions[role] = ForgejoTeamDefinition(name=self.forgejo_migration_config.ORG_TEAM_MAINTAINERS_NAME,
+                                                                        description=self.forgejo_migration_config.ORG_TEAM_MAINTAINERS_DESCRIPTION,
+                                                                        permissions=self.role_definitions[role])
+                case CanonicalRepositoryRole.DEVELOPER:
+                    self.team_definitions[role] = ForgejoTeamDefinition(name=self.forgejo_migration_config.ORG_TEAM_DEVELOPERS_NAME,
+                                                                        description=self.forgejo_migration_config.ORG_TEAM_DEVELOPERS_DESCRIPTION,
+                                                                        permissions=self.role_definitions[role])
+                case CanonicalRepositoryRole.REPORTER:
+                    self.team_definitions[role] = ForgejoTeamDefinition(name=self.forgejo_migration_config.ORG_TEAM_REPORTERS_NAME,
+                                                                        description=self.forgejo_migration_config.ORG_TEAM_REPORTERS_DESCRIPTION,
+                                                                        permissions=self.role_definitions[role])
+                case CanonicalRepositoryRole.GUEST:
+                    self.team_definitions[role] = ForgejoTeamDefinition(name=self.forgejo_migration_config.ORG_TEAM_GUESTS_NAME,
+                                                                        description=self.forgejo_migration_config.ORG_TEAM_GUESTS_DESCRIPTION,
+                                                                        permissions=self.role_definitions[role])
+                case _:
+                    raise Exception(f"No Forgejo Team Definition mapping for Role {role}")   
+        
+
+
+    def _build_role_definitions(self):
+        self.role_definitions = {}
+        for role in CanonicalRepositoryRole:
+            match role:
+                case CanonicalRepositoryRole.OWNER:
+                    self.role_definitions[role] = ForgejoRolePermissionDefinition(
+                                                    role=role,
+                                                    permission="admin", # Not supported
+                                                    units_map= { "repo.actions": "write", "repo.code": "write", "repo.ext_issues": "read", 
+                                                                 "repo.ext_wiki": "admin", "repo.issues": "write", "repo.packages": "write", 
+                                                                 "repo.projects": "write", "repo.pulls": "owner", "repo.releases": "write", 
+                                                                 "repo.wiki": "admin" }
+                                                )
+                case CanonicalRepositoryRole.MAINTAINER:
+                    self.role_definitions[role] = ForgejoRolePermissionDefinition(
+                                                    role=role,
+                                                    permission="admin",
+                                                    units_map= { "repo.actions": "write", "repo.code": "write", "repo.ext_issues": "read", 
+                                                                "repo.ext_wiki": "admin", "repo.issues": "write", "repo.packages": "write", 
+                                                                "repo.projects": "write", "repo.pulls": "owner", "repo.releases": "write", 
+                                                                "repo.wiki": "admin" }
+                                                )
+                case CanonicalRepositoryRole.DEVELOPER:
+                    self.role_definitions[role] = ForgejoRolePermissionDefinition(
+                                                    role=role,
+                                                    permission="write",
+                                                    units_map= { "repo.actions": "read", "repo.code": "write", "repo.ext_issues": "read", 
+                                                                "repo.ext_wiki": "read", "repo.issues": "write", "repo.packages": "write", 
+                                                                "repo.projects": "read", "repo.pulls": "owner", "repo.releases": "write", 
+                                                                "repo.wiki": "write" }
+                                                )
+                case CanonicalRepositoryRole.REPORTER:
+                    self.role_definitions[role] = ForgejoRolePermissionDefinition(
+                                                    role=role,
+                                                    permission="read",
+                                                    units_map= { "repo.actions": "none", "repo.code": "read", "repo.ext_issues": "read", 
+                                                                "repo.ext_wiki": "read", "repo.issues": "write", "repo.packages": "none", 
+                                                                "repo.projects": "none", "repo.pulls": "none", "repo.releases": "none", 
+                                                                "repo.wiki": "none" }
+                                                )
+                case CanonicalRepositoryRole.GUEST:
+                    self.role_definitions[role] = ForgejoRolePermissionDefinition(
+                                                    role=role,
+                                                    permission="read",
+                                                    units_map= { "repo.actions": "none", "repo.code": "read", "repo.ext_issues": "none", 
+                                                                "repo.ext_wiki": "none", "repo.issues": "read", "repo.packages": "read", 
+                                                                "repo.projects": "read", "repo.pulls": "read", "repo.releases": "read", 
+                                                                "repo.wiki": "read" }
+                                                )
+                case _:
+                    raise Exception(f"No Forgejo Role Definition mapping for Role {role}")
+    
+
+    def get_forgejo_milestones(self, owner: str, repo: str) -> List[Milestone]:
         """get milestones for a repository"""
 
         try:
@@ -118,7 +178,7 @@ class ForgejoMigrator:
 
 
 
-    def _get_forgejo_issues(self, owner: str, repo: str) -> List[Issue]:
+    def get_forgejo_issues(self, owner: str, repo: str) -> List[Issue]:
         """get issues for a repository"""
 
         try:
@@ -129,9 +189,14 @@ class ForgejoMigrator:
             fg_print.error(f"Failed to load existing issues for project {repo}! {detail}")
             return []
 
+    def is_owner_group(self, team:CanonicalTeam) -> bool:
+         return team.source_access_level == self.forgejo_config.FORGEJO_DEFAULT_OWNERS_TEAM_NAME)
 
+    def get_default_owners_team_name(self) -> str:
+        return self.forgejo_config.FORGEJO_DEFAULT_OWNERS_TEAM_NAME
+       
 
-    def _get_forgejo_teams(self, org_name: str) -> List[Team]:
+    def get_forgejo_teams(self, org_name: str) -> List[Team]:
         """get teams for an organization"""
 
         try:
@@ -144,7 +209,7 @@ class ForgejoMigrator:
         
 
 
-    def _get_forgejo_team_members(self, team: Team) -> List[User]:
+    def get_forgejo_team_members(self, team: Team) -> List[User]:
         """get members for a team"""
 
         try:
@@ -157,7 +222,7 @@ class ForgejoMigrator:
 
 
 
-    def _get_forgejo_collaborators(self, owner_username: str, repo: str) -> List[User]:
+    def get_forgejo_collaborators(self, owner_username: str, repo: str) -> List[User]:
         """get collaborators for a repository"""
 
         try:
@@ -170,7 +235,7 @@ class ForgejoMigrator:
 
 
 
-    def _get_forgejo_user_keys(self, username : str) -> List[PublicKey] :
+    def get_forgejo_user_keys(self, username : str) -> List[PublicKey] :
         """get public keys for a user"""
 
         try:
@@ -181,7 +246,7 @@ class ForgejoMigrator:
             fg_print.error(f"Failed to load public keys for user {username}! {detail}")
         return []
 
-    def _get_forgejo_user_gpg_keys(self, username : str) -> List[GpgKey] :
+    def get_forgejo_user_gpg_keys(self, username : str) -> List[GpgKey] :
         """get gpg keys for a user"""
 
         try:
@@ -195,7 +260,7 @@ class ForgejoMigrator:
 
 
 
-    def _get_forgejo_organization(self, repo: CanonicalRepo, org_name: str) -> Organization:
+    def get_forgejo_organization(self, repo: CanonicalRepo, org_name: str) -> Organization:
         
         try:
             #fg_print.info(f"Trying to load forgejo organization {possible_org} for gitlab project {project.name}...")
@@ -209,7 +274,7 @@ class ForgejoMigrator:
 
 
 
-    def _get_forgejo_user(self, username: str) -> User|None:
+    def get_forgejo_user(self, username: str) -> User|None:
         """get user by name"""
         try:
             user = self.fg_api.user.get(username)
@@ -222,7 +287,7 @@ class ForgejoMigrator:
 
 
 
-    def _forgejo_user_exists(self, username: str) -> bool:
+    def forgejo_user_exists(self, username: str) -> bool:
         """check if a user exists"""
         try:
             user = self.fg_api.user.get(username)
@@ -236,8 +301,8 @@ class ForgejoMigrator:
             return False
 
 
-
-    def _forgejo_organization_exists(self, orgname: str) -> bool:
+    @deprecated("working, but Not used")
+    def forgejo_organization_exists(self, orgname: str) -> bool:
         """check if an organization exists"""
         try:
             org = self.fg_api.organization.org_get(orgname)
@@ -250,10 +315,10 @@ class ForgejoMigrator:
             return False
 
 
-
-    def _forgejo_team_member_exists(self, username: str, team: Team) -> bool:
+    @deprecated("working, but Not used")
+    def forgejo_team_member_exists(self, username: str, team: Team) -> bool:
         """check if a member exists in a team"""
-        existing_members = self._get_forgejo_team_members(team=team)
+        existing_members = self.get_forgejo_team_members(team=team)
         if existing_members:
             
             existing_member = next(
@@ -273,8 +338,8 @@ class ForgejoMigrator:
         return False
 
 
-
-    def _forgejo_collaborator_exists(self, _owner: str, repo: str, username: str) -> bool:
+    @deprecated("working, but Not used")
+    def forgejo_collaborator_exists(self, _owner: str, repo: str, username: str) -> bool:
         """check if a collaborator exists in a repository"""
         try:
             collaborators : List[User] = self.fg_api.repository.repo_list_collaborators(_owner, repo)
@@ -299,7 +364,7 @@ class ForgejoMigrator:
 
 
 
-    def _forgejo_repo_exists(self, owner_username: str, repo: str) -> bool:
+    def forgejo_repo_exists(self, owner_username: str, repo: str) -> bool:
         """check if a repository exists"""
         try:
             fg_print.info(f"Checking if project {repo} exists in Forgejo for owner {owner_username}...")
@@ -321,7 +386,7 @@ class ForgejoMigrator:
 
 
 
-    def _forgejo_label_exists(self, owner: str, repo: str, labelname: str) -> bool:
+    def forgejo_label_exists(self, owner: str, repo: str, labelname: str) -> bool:
         """check if a label exists in a repository"""
         #issues = self.fg_api.issue.list_issues(owner, repo)
         existing_labels = self.fg_api.issue.list_labels(owner, repo)
@@ -344,7 +409,7 @@ class ForgejoMigrator:
 
 
 
-    def _forgejo_issue_exists(self, existing_issues : List[Issue], repo: str, issue_title: str) -> bool:
+    def forgejo_issue_exists(self, existing_issues : List[Issue], repo: str, issue_title: str) -> bool:
         """check if an issue exists in a repository"""
         
         if existing_issues:
@@ -366,7 +431,7 @@ class ForgejoMigrator:
 
 
 
-    def _find_forgejo_milestone_id_by_title(self, forgejo_milestones: List[Milestone], title: str) -> int:
+    def find_forgejo_milestone_id_by_title(self, forgejo_milestones: List[Milestone], title: str) -> int:
         """get milestone id by title"""
         # get the forgejo milestone with matching title
         # the issue, if it exists, otherwise return None
@@ -385,7 +450,7 @@ class ForgejoMigrator:
 
 
 
-    def _find_forgejo_milestone_by_title(self, existing_milestones : List[Milestone], title: str) -> bool:
+    def find_forgejo_milestone_by_title(self, existing_milestones : List[Milestone], title: str) -> bool:
         """check if a milestone exists in a repository"""
         
         if existing_milestones:
@@ -417,7 +482,7 @@ class ForgejoMigrator:
 
 
 
-    def _forgejo_add_replace_collaborator(self,
+    def forgejo_add_replace_collaborator(self,
                                         existing_collaborator_ids:set[int], 
                                         collaborator_name:str,
                                         collaborator_id:int,
@@ -459,10 +524,10 @@ class ForgejoMigrator:
 
 
 
-    def _forgejo_add_user(self, user:CanonicalSystemUser, notify: bool) -> bool:
+    def forgejo_add_user(self, user:CanonicalSystemUser, notify: bool) -> bool:
         """add a user to Forgejo, return True if user created or already exists"""
 
-        if not self._forgejo_user_exists(username=user.get_safe_username()): # need this because status 422 returned for conflict, not 409 
+        if not self.forgejo_user_exists(username=user.get_safe_username()): # need this because status 422 returned for conflict, not 409 
             rnd_str = "".join(random.choices(string.ascii_uppercase + string.digits, k=10))
             tmp_password = f"Tmp1!{rnd_str}"
             try:
@@ -488,7 +553,7 @@ class ForgejoMigrator:
         return True
 
 
-    def _forgejo_list_team_in_repository(self,
+    def forgejo_list_team_in_repository(self,
                                         owner_username:str,
                                         repo_name:str) -> List[Team]:
         """List all teams in a repository"""
@@ -502,7 +567,7 @@ class ForgejoMigrator:
             return []
 
 
-    def _forgejo_add_team_to_repository(self,
+    def forgejo_add_team_to_repository(self,
                                         owner_username:str,
                                         repo_name:str,
                                         team_name:str):
@@ -519,7 +584,7 @@ class ForgejoMigrator:
 
 
 
-    def _forgejo_add_user_key(self, username : str, key_name : str, key_content : str) -> PublicKey|None :
+    def forgejo_add_user_key(self, username : str, key_name : str, key_content : str) -> PublicKey|None :
         """Add a public key to the user"""
         try:
             # fg_print.info(f"Importing public key {key_name} for user {username}...")
@@ -548,7 +613,7 @@ class ForgejoMigrator:
 
 
 
-    def _forgejo_add_gpg_key(self, username : str, key_id : str, armored_signature:str| None, armored_public_key : str) -> GpgKey|None :
+    def forgejo_add_gpg_key(self, username : str, key_id : str, armored_signature:str| None, armored_public_key : str) -> GpgKey|None :
         """Add a GPG key to the user"""
         
         try:
@@ -576,7 +641,7 @@ class ForgejoMigrator:
 
 
     @deprecated("This cannot be used to create api tokens when the API was authorised using an access token")
-    def _forgejo_delete_temp_api_token_for_user(self, username:str, token_name:str):
+    def forgejo_delete_temp_api_token_for_user(self, username:str, token_name:str):
         """Delete an Access Token for the user (if using sudo)"""
         try:
             self.fg_api.user.delete_access_token(username=username, token=token_name)
@@ -589,7 +654,7 @@ class ForgejoMigrator:
 
 
     @deprecated("This cannot be used to create api tokens when the API was authorised using an access token")
-    def _forgejo_add_temp_api_token_for_user(self, username:str, token_name:str, desired_scopes:Dict[str] = None) -> str:
+    def forgejo_add_temp_api_token_for_user(self, username:str, token_name:str, desired_scopes:Dict[str] = None) -> str:
         """Create an Access Token for the user (if using sudo)"""
         #Example desired_scopes=["read:user","write:user"]
         # A full list is here: https://forgejo.org/docs/latest/user/token-scope/
@@ -610,9 +675,9 @@ class ForgejoMigrator:
 
 
 
-    def _forgejo_add_organization(self, organization: CanonicalOrganization) -> bool:
+    def forgejo_add_organization(self, organization: CanonicalOrganization) -> bool:
         """add a group as organization in Forgejo"""
-        if not self._forgejo_organization_exists(orgname=organization.get_safe_username()): # need this because status 422 returned for conflict, not 409 
+        if not self.forgejo_organization_exists(orgname=organization.get_safe_username()): # need this because status 422 returned for conflict, not 409 
             try:
                 self.fg_api.organization.org_create(
                     description=organization.description,
@@ -636,7 +701,7 @@ class ForgejoMigrator:
 
 
 
-    def _forgejo_add_organization_team(self, org_name: str, definition : ForgejoTeamDefinition) -> Team | None:
+    def forgejo_add_organization_team(self, org_name: str, definition : ForgejoTeamDefinition) -> Team | None:
         """Add a team to an organization"""
         try:
             team = self.fg_api.organization.org_create_team(org=org_name,
@@ -659,7 +724,7 @@ class ForgejoMigrator:
             return None
 
 
-    def _forgejo_add_user_to_organization_team(self, username: str, organization_name: str, team: Team) -> bool:
+    def forgejo_add_user_to_organization_team(self, username: str, organization_name: str, team: Team) -> bool:
         """add a user to a team for a group"""
         
         try:
@@ -676,9 +741,9 @@ class ForgejoMigrator:
 
 
 
-    def _forgejo_add_milestone(self, owner: str, repo: str, forgejo_milestones:List[Milestone], title: str, description: str, due_date: str, state: str) -> bool:
+    def forgejo_add_milestone(self, owner: str, repo: str, forgejo_milestones:List[Milestone], title: str, description: str, due_date: str, state: str) -> bool:
         """add a milestone to a repository"""
-        forgejo_milestone : Milestone = self._find_forgejo_milestone_by_title(forgejo_milestones, title)
+        forgejo_milestone : Milestone = self.find_forgejo_milestone_by_title(forgejo_milestones, title)
 
         # if the milestone doesn't exist in the list
         if forgejo_milestone == None:
@@ -702,7 +767,7 @@ class ForgejoMigrator:
             
 
 
-    def _forgejo_update_organization_team(self, team:Team, definition:ForgejoTeamDefinition) -> Team | None :
+    def forgejo_update_organization_team(self, team:Team, definition:ForgejoTeamDefinition) -> Team | None :
         """Rename a Forgejo Team (e.g. Owners)"""
         try:
             updated = self.fg_api.organization.org_edit_team(id=team.id,
@@ -737,8 +802,17 @@ class ForgejoMigrator:
             detail = str(e)
         return detail
 
-    def addTeamMapping(self, map_from_str:str, to_role:CanonicalRepositoryRole, ):
+    def addTeamMapping(self, map_from_str:str, to_role:CanonicalRepositoryRole):
+        """Add a custom team mapping for an access level not explicitly defined in Forgejo  but encountered during migration"""
         new_team = deepcopy(self.team_definitions[to_role])
         new_team.name=map_from_str
         new_team.description="Temporary team for grouping collaborators with unmapped source access permission"
         self.team_definitions[map_from_str]=new_team
+    
+    def addRoleMapping(self, map_from_str:str, to_role:CanonicalRepositoryRole):
+        """Add a custom user role mapping for an access level not explicitly defined in Forgejo  but encountered during migration.
+            Note that the default Forgejo permissions values in here are used for both team and user of same role"""
+        new_role_permissions_definition = deepcopy(self.role_definitions[to_role])
+        new_role_permissions_definition.name=map_from_str
+        new_role_permissions_definition.description="Temporary Role for collaborators with unmapped source access permission"
+        self.role_definitions[map_from_str]=new_role_permissions_definition

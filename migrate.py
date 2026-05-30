@@ -31,6 +31,7 @@ import pyforgejo  # pip install pyforgejo (https://github.com/h44z/pyforgejo)
 
 from pyforgejo import PyforgejoApi
 
+from fg_migration.canonical_types import MigrationSource
 from fg_migration.config_types import ForgejoConfig, ForgejoMigrationConfig, GitlabConfig, GitlabMigrationConfig, MigrationConfig
 from fg_migration.forgjo import ForgejoMigrator
 from fg_migration.gitlab import GitlabMigrationSource
@@ -103,7 +104,9 @@ def main():
     
     fg_print.info(f"Connected to Forgejo, version: {fg_ver}")
 
-    migrator = Migrator(migration_config=migration_config, migration_source=GitlabMigrationSource(gitlab_api=gl, gitlab_config=gitlab_config), fg_api=ForgejoMigrator(fg_api=fg))
+    migration_source : MigrationSource = GitlabMigrationSource(gitlab_api=gl, gitlab_config=gitlab_config)
+
+    migrator = Migrator(migration_config=migration_config, migration_source=migration_source, fg_api=ForgejoMigrator(fg_api=fg))
 
     # IMPORT System users
     if args["users"] or args["all"]:

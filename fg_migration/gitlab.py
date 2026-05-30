@@ -1,17 +1,18 @@
 
 import re
-from typing import List
+from typing import List, override
 
 import gitlab  # pip install python-gitlab
 import gitlab.v4.objects
 
 from fg_migration import fg_print
-from fg_migration.canonical_types import CanonicalGpgKey, CanonicalKey, CanonicalOrganization, CanonicalOrganizations, CanonicalRepo, CanonicalRepoAccessor, CanonicalRepoAccessors, CanonicalRepositoryRole, CanonicalSystemUser, CanonicalTeam, CanonicalUser
+from fg_migration.canonical_types import CanonicalGpgKey, CanonicalKey, CanonicalOrganization, CanonicalOrganizations, CanonicalRepo, CanonicalRepoAccessor, CanonicalRepoAccessors, CanonicalRepositoryRole, CanonicalSystemUser, CanonicalTeam, CanonicalUser, MigrationSource
 from fg_migration.config_types import GitlabMigrationConfig
 from fg_migration.utils import name_clean
 from migrate import GitlabConfig
 
-class GitlabMigrationSource:
+class GitlabMigrationSource(MigrationSource):
+
     gitlab_api: gitlab.Gitlab
     gitlab_config: GitlabConfig
     gitlab_migration_config: GitlabMigrationConfig
@@ -82,9 +83,11 @@ class GitlabMigrationSource:
             pass
         return tmp_email
 
+    @override
     def getSourceSystemName(self) -> str:
         return self.source_system
     
+    @override
     def listRepos(self) -> List[CanonicalRepo]:
         projects: List[gitlab.v4.objects.Project] = self.gitlab_api.projects.list(get_all=True)
         fg_print.info(f"Found {len(projects)} gitlab projects as user {self.gitlab_api.user.username}")
@@ -119,7 +122,8 @@ class GitlabMigrationSource:
             
         return repos
     
-    def listRepoAccessors(self, repo:CanonicalRepo) -> CanonicalRepoAccessors:
+    @override
+    def list_repository_accessors(self, repo:CanonicalRepo) -> CanonicalRepoAccessors:
         # gitlab project = forgejo repo
         project: gitlab.v4.objects.Project = self.gitlab_api.projects.get(id=repo.source_id)
         project_members: List[gitlab.v4.objects.ProjectMember] = project.members.list(get_all=True)
@@ -138,41 +142,54 @@ class GitlabMigrationSource:
         return repo_accessors
 
 
-        
-    def listOrganizations(self) -> CanonicalOrganizations:
+    @override
+    def list_organizations(self) -> CanonicalOrganizations:
         # read all users
         groups: List[gitlab.v4.objects.Group] = self.gitlab_api.groups.list(get_all=True)
         
-        organizations : List[CanonicalOrganization] = []
+        organizations = CanonicalOrganizations(source_type="Groups", members=List[CanonicalOrganization])
+
         group : gitlab.v4.objects.Group
+
+        # Each group is essentially mapping as repository (or series of) owner (Forgejo organization)
         for group in groups:
+            # create a map only to avoid searching for the right team for each user
+            access_role_teams_map: dict[int,List[CanonicalTeam]] = {}
+            
             # Group members are users. They share a finite set of access_level
             # we can map that access level to a team.
             groupMembers: List[gitlab.v4.objects.GroupMember] = group.members.list(get_all=True)
-            # create a map only to avoid searching for the right team for each user
-            access_role_teams_map: dict[str,List[CanonicalTeam]] = {}
-            
-            #TODO what AM I DOING HERE!??!?!?!??! FUNCTION IS WEIRD!
             
             # For every user that has access to this group
             for member in groupMembers:
-                # create a new team for each access level
-                if str(member.access_level) not in access_role_teams_map:
-                    access_role_teams_map[member.access_level] = CanonicalTeam(
-                        username=None,
-                        source_access_level=str(member.access_level),
-                        users=[]
-                    )
-                # add the user to the new team grouping
-                team = access_role_teams_map[member.access_level]
+                # get the correct team
+                team = self._find_or_create_team(access_level_teams_map=access_role_teams_map, access_level=member.access_level)
+                
+                # add the user to the team
                 team.users.append(CanonicalUser(username=member.username))
-                #TODO is gitlab api Group username stored in path or full_path or username?
-            organizations.append(CanonicalOrganization(source_type="Group", username=group.path, full_name=group.full_name, description=group.description, teams=access_role_teams_map.values()))
-        return CanonicalOrganizations(source_type="Groups", members=organizations)
 
+            # create an organization
+            #TODO is gitlab api Group username stored in path or full_path or username?
+            this_org = CanonicalOrganization(source_type="Group", username=group.path, full_name=group.full_name, 
+                                             description=group.description, teams=access_role_teams_map.values())
+            # add the org to the list
+            organizations.members.append(this_org)
+            
+        return 
 
+    def _find_or_create_team(self, access_level_teams_map:dict[str,List[CanonicalTeam]], access_level:int) -> CanonicalTeam:
+        # create a new team for each access level that doesn't already have one.
+        if str(access_level) not in access_level_teams_map:
+            access_level_teams_map[access_level] = CanonicalTeam(
+                username=None,
+                source_access_level=str(access_level),
+                users=[]
+            )
+        team = access_level_teams_map[access_level]
+        return team
 
-    def listSystemUsers(self) -> List[CanonicalSystemUser]:
+    @override
+    def list_system_users(self) -> List[CanonicalSystemUser]:
         users: List[gitlab.v4.objects.User] = self.gitlab_api.users.list(get_all=True)
         canonical_users : List[CanonicalSystemUser] = []
         for user in users:
@@ -204,8 +221,8 @@ class GitlabMigrationSource:
 
     
 
-
-    def getRepositoryRole(self, source_access_level:str) -> CanonicalRepositoryRole | str:
+    @override
+    def get_repository_role(self, source_access_level:str) -> CanonicalRepositoryRole | str:
         role = self.access_level_role_map.get(int(source_access_level))
         if role is None:
             fg_print.error(f"{self.source_system} Access_Level:Role Mapping missing for {source_access_level}")
@@ -214,8 +231,8 @@ class GitlabMigrationSource:
         return role
 
 
-
-    def getNearestRepositoryRole(self, source_access_level:str,
+    @override
+    def get_nearest_repository_role(self, source_access_level:str,
                                  allow_downgrade:bool,
                                  allow_upgrade:bool) -> CanonicalRepositoryRole | None:
 
@@ -231,4 +248,4 @@ class GitlabMigrationSource:
             if not smaller is None:
                 closest_access_level = smaller
         
-        return self.getRepositoryRole(str(closest_access_level))
+        return self.get_repository_role(str(closest_access_level))

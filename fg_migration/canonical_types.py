@@ -1,4 +1,5 @@
 
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
@@ -124,27 +125,6 @@ class CanonicalRepoAccessors:
         return grouped_by_access_level
     
 
-    def _get_gitlab_required_access_levels_to_username_map_for_group_members(repo_accessors: List[CanonicalRepoAccessor]) -> dict[int,set[str]]:
-        """Get a list of all gitlab permissions levels utilised by the group members"""
-        
-        required_access_levels_user_map : dict[str,set[str]] = dict()
-        # If so desired, ensure we create ALL teams regardless of if they presently contain a user or not
-        if ADD_EMPTY_TEAMS:
-            for permission in _get_gitlab_access_level_role_map().keys():
-                required_access_levels_user_map[permission]=set()
-
-        # Now fill the map with the users.
-        member : CanonicalRepoAccessor
-        for repo_accessor in repo_accessors:
-            users_set = required_access_levels_user_map.get(repo_accessor.access_level)
-            if users_set == None:
-                users_set = set()
-                required_access_levels_user_map[repo_accessor.access_level] = users_set
-            if not repo_accessor.username in users_set:
-                #fg_print.info(f"Added member {member.username} to access group {member.access_level}")
-                users_set.add(repo_accessor.username)
-        return required_access_levels_user_map
-
 
 @dataclass
 class CanonicalRepo:
@@ -194,20 +174,33 @@ class CanonicalRepositoryRole(Enum):
     REPORTER = "Reporter",
     GUEST = "Guest"
 
-class MigrationSource:
+class MigrationSource(ABC):
+    @abstractmethod
     def getSourceSystemName(self) -> str:
         pass
+
+    @abstractmethod
     def listRepos(self) -> List[CanonicalRepo]:
         pass
-    def listOrganizations(self) -> CanonicalOrganizations:
+
+    @abstractmethod
+    def list_organizations(self) -> CanonicalOrganizations:
         pass
-    def listRepoAccessors(self, repo:CanonicalRepo) -> CanonicalRepoAccessors:
+
+    @abstractmethod
+    def list_repository_accessors(self, repo:CanonicalRepo) -> CanonicalRepoAccessors:
         pass
-    def listSystemUsers(self) -> List[CanonicalSystemUser]:
+
+    @abstractmethod
+    def list_system_users(self) -> List[CanonicalSystemUser]:
         pass
-    def getRepositoryRole(self, source_access_level:str) -> CanonicalRepositoryRole | str:
+
+    @abstractmethod
+    def get_repository_role(self, source_access_level:str) -> CanonicalRepositoryRole | str:
         pass
-    def getNearestRepositoryRole(self, source_access_level:str,
+
+    @abstractmethod
+    def get_nearest_repository_role(self, source_access_level:str,
                                  allow_downgrade:bool,
                                  allow_upgrade:bool) -> CanonicalRepositoryRole | None:
         pass
