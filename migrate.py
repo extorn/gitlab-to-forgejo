@@ -26,10 +26,10 @@ import configparser
 from docopt import docopt
 
 
-from fg_migration.adapters.forgeo_types import ForgejoApiBuilder
+from fg_migration.adapters.forgejo_types import ForgejoApiBuilder
 from fg_migration.core.migration_source import SourceFactory
 from fg_migration.core.config_types import (ForgejoConfig, MigrationConfig)
-from fg_migration.adapters.destination_forgjo import ForgejoDestination
+from fg_migration.adapters.destination_forgejo import ForgejoDestination
 from fg_migration.services.migrator import Migrator
 
 from fg_migration.utils import fg_print

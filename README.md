@@ -132,6 +132,9 @@ gitlab_admin_pass = <your-gitlab-password>
 
 [migrate]
 
+### Instance source
+source=gitlab
+
 ### If True, Add a Forgejo team for every possible gitlab group member access level
 #add_empty_teams_to_organizations=False
 

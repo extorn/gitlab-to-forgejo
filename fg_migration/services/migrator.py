@@ -13,12 +13,12 @@ from fg_migration.strategies.strict_access_level_mapping_strategy \
                                     import StrictAccessLevelMappingStrategy
 from fg_migration.utils import fg_print
 from fg_migration.strategies.access_mapping_strategy import AccessMappingStrategy
-from fg_migration.adapters.forgeo_types import (ForgejoApiBuilder, ForgejoPermission,
+from fg_migration.adapters.forgejo_types import (ForgejoApiBuilder, ForgejoPermission,
                                                 IterativeFetchError)
 from fg_migration.core.migration_source_type import MigrationSource
 from fg_migration.core.canonical_types import (CanonicalOrganizations, CanonicalRepo,
                                                CanonicalSystemUser)
-from fg_migration.adapters.destination_forgjo import ForgejoDestination
+from fg_migration.adapters.destination_forgejo import ForgejoDestination
 from fg_migration.core.config_types import MigrationConfig
 
 
@@ -335,7 +335,7 @@ class Migrator:
                                         issues=True,
                                         labels=True,
                                         milestones=True,
-                                        mirror=False,
+                                        mirror=True,
                                         pull_requests=True,
                                         releases=True,
                                         wiki=True,

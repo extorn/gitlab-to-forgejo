@@ -11,7 +11,7 @@ import yaml
 
 from fg_migration.adapters.gitlab_types import GitLabApiPaginator, IterativeFetchError
 from fg_migration.utils import fg_print
-from fg_migration.adapters.destination_forgjo import ForgejoRepositoryRole
+from fg_migration.adapters.destination_forgejo import ForgejoRepositoryRole
 from fg_migration.core.migration_source_type import MigrationSource
 from fg_migration.core.canonical_types import (CanonicalGpgKey, CanonicalOrganizationMembership,
                                                CanonicalKey, CanonicalOrganization,
@@ -429,7 +429,7 @@ class GitLabMigrationSource(MigrationSource):
                 for sub_group in self._iter_all_sub_groups_of_group(group=group):
                     sub_hierarchy = copy(hierarchy)
                     sub_hierarchy.append(HierarchyNode(
-                                                name=sub_hierarchy.path,
+                                                name=sub_group.path,
                                                 relation=HierarchyNode.RelationEnum.SUB))
                     sub_group_id = sub_group.get_id()
                     sub_group = self.gitlab_api.groups.get(sub_group_id)

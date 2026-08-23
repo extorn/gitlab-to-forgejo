@@ -2,7 +2,7 @@
 from typing import override
 
 
-from fg_migration.adapters.forgeo_types import (ForgejoRolePermissionDefinition,
+from fg_migration.adapters.forgejo_types import (ForgejoRolePermissionDefinition,
                                                 ForgejoTeamDefinition)
 from fg_migration.core.canonical_types import CanonicalRepo, CanonicalRepoMemberships
 from fg_migration.strategies.access_level_mapping_strategy import AccessLevelAccessMappingStrategy

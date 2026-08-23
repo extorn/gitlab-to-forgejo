@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 from fg_migration.core.canonical_types import (CanonicalOrganizations, CanonicalRepo,
                                                CanonicalRepoMemberships, CanonicalSystemUser)
-from fg_migration.adapters.destination_forgjo import ForgejoRepositoryRole
+from fg_migration.adapters.destination_forgejo import ForgejoRepositoryRole
 
 
 class MigrationSource(ABC):

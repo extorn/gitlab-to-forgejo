@@ -162,8 +162,9 @@ class ForgejoPurger:
                 break
             for user in users:
                 try:
-                    self.forgejo_api.admin.delete_user(username=user.login, purge=purge)
-                    fg_print.info(f"User {user.login} deleted on Forgejo")
+                    if user.login != "aliens":
+                        self.forgejo_api.admin.delete_user(username=user.login, purge=purge)
+                        fg_print.info(f"User {user.login} deleted on Forgejo")
                 except (ApiError, RequestException) as e:
                     detail = self._get_exception_detail(e)
                     fg_print.error(f"Error deleting user {user.login} on Forgejo: {detail}")

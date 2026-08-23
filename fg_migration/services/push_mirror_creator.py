@@ -9,7 +9,7 @@ from pyforgejo import PushMirror, PyforgejoApi
 from pyforgejo.core import ApiError
 from requests import RequestException
 
-from fg_migration.adapters.forgeo_types import IterativeFetchError
+from fg_migration.adapters.forgejo_types import IterativeFetchError
 from fg_migration.adapters.gitlab_types import GitLabApiPaginator
 from fg_migration.utils import fg_print
 from fg_migration.core.config_types import ForgejoConfig, GitLabConfig

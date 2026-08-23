@@ -26,7 +26,7 @@ from fg_migration.core.canonical_types import (CanonicalOrganization, CanonicalR
                                                CanonicalRepoMembership,
                                                CanonicalRepoOwner, CanonicalSystemUser)
 from fg_migration.core.config_types import ForgejoConfig
-from fg_migration.adapters.forgeo_types import (ApiPaginator, ForgejoPermission,
+from fg_migration.adapters.forgejo_types import (ApiPaginator, ForgejoPermission,
                                                 ForgejoRepositoryRole,
                                                 ForgejoRolePermissionDefinition,
                                                 ForgejoTeamDefinition, ForgejoTeamRoleBuilder,
@@ -693,7 +693,7 @@ class ForgejoDestination:
 
 
 
-    def forgejo_add_gpg_key(self, username : str, key_id : str,
+    def forgejo_add_gpg_key(self, username : str, key_name : str,
                             armored_signature:str| None, armored_public_key : str) -> GpgKey|None :
         """Add a GPG key to the user"""
 
@@ -709,13 +709,13 @@ class ForgejoDestination:
                     armored_public_key=armored_public_key,
                     request_options=self._build_forgejo_sudo_request_options(username)
                 )
-            fg_print.info(f"GPG key {key_id} imported for user {username}")
+            fg_print.info(f"GPG key {key_name} imported for user {username}")
             return new_key
         except (ApiError, RequestException) as e:
             detail = self._get_exception_detail(e)
             fg_print.error(
-                f"GPG key {key_id} import failed: {e}",
-                f"failed to import GPG key '{key_id}' for user {username} {detail}",
+                f"GPG key {key_name} import failed: {e}",
+                f"failed to import GPG key '{key_name}' for user {username} {detail}",
             )
             return None
 

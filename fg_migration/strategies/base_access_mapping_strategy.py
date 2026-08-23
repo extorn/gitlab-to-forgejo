@@ -4,8 +4,8 @@ from typing import override
 
 from pyforgejo import Organization, Team
 
-from fg_migration.adapters.destination_forgjo import ForgejoDestination
-from fg_migration.adapters.forgeo_types import (ForgejoPermission, ForgejoRepositoryRole,
+from fg_migration.adapters.destination_forgejo import ForgejoDestination
+from fg_migration.adapters.forgejo_types import (ForgejoPermission, ForgejoRepositoryRole,
                                                 ForgejoRolePermissionDefinition,
                                                 ForgejoTeamDefinition, IterativeFetchError)
 from fg_migration.core.canonical_types import CanonicalOrganization, CanonicalRepo, CanonicalRepoMemberships

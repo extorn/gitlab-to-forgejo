@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 from pyforgejo import Organization, Team
 
-from fg_migration.adapters.forgeo_types import ForgejoPermission
+from fg_migration.adapters.forgejo_types import ForgejoPermission
 from fg_migration.core.canonical_types import CanonicalOrganization, CanonicalRepo
 from fg_migration.core.migration_source_type import MigrationSource
 

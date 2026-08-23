@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #
 """
-Usage: purge_forgejo.py [--debug] [--orgs-repos] [--orgs] [--user-repos] [--current-repos]
+Usage: purge_forgejo.py [--debug] [--orgs-repos] [--orgs] [--user-repos] [--current-repos] [--users] [--all]
        purge_forgejo.py --all [--purge]
        purge_forgejo.py --users [--purge]
        purge_forgejo.py --help
@@ -26,7 +26,7 @@ from click import confirm
 from fg_migration.utils import fg_print
 from fg_migration.core.config_types import ForgejoConfig
 from fg_migration.services.fg_purger import ForgejoPurger
-from fg_migration.adapters.forgeo_types import ForgejoApiBuilder
+from fg_migration.adapters.forgejo_types import ForgejoApiBuilder
 
 SCRIPT_VERSION = "1.0.0"
 
@@ -87,12 +87,12 @@ def main() -> int:
     try:
         if args["--orgs-repos"] or args["--all"]:
             purger.del_orgs_repos()
+        if args["--orgs"] or args["--all"]:
+            purger.del_orgs()
         if args["--user-repos"] or args["--all"]:
             purger.del_all_user_repos()
         if args["--current-repos"] or args["--all"]:
             purger.del_current_user_repos()
-        if args["--orgs"] or args["--all"]:
-            purger.del_orgs()
         if args["--users"] or args["--all"]:
             purge_option = bool(args["--purge"])
             purger.del_users(purge=purge_option)

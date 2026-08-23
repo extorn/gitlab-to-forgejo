@@ -8,7 +8,7 @@ from fg_migration.core.canonical_types import (
     CanonicalRepo,
     CanonicalRepoMemberships,
 )
-from fg_migration.adapters.forgeo_types import (ForgejoPermission, ForgejoTeamDefinition,
+from fg_migration.adapters.forgejo_types import (ForgejoPermission, ForgejoTeamDefinition,
                                                 IterativeFetchError)
 from fg_migration.core.migration_source_type import MigrationSource
 from fg_migration.strategies.base_access_mapping_strategy import BaseAccessMappingStrategy
